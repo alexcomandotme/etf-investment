@@ -1,0 +1,129 @@
+
+<h2 class="sr-only">Investment calculator showing growth of £100/month over 20 years at various return rates</h2>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.5rem;">
+  <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:1rem;">
+    <p style="font-size:13px;color:var(--color-text-secondary);margin:0 0 4px;">Monthly investment</p>
+    <p style="font-size:22px;font-weight:500;margin:0;" id="disp-monthly">£100</p>
+  </div>
+  <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:1rem;">
+    <p style="font-size:13px;color:var(--color-text-secondary);margin:0 0 4px;">Total invested</p>
+    <p style="font-size:22px;font-weight:500;margin:0;" id="disp-invested">£24,000</p>
+  </div>
+  <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:1rem;">
+    <p style="font-size:13px;color:var(--color-text-secondary);margin:0 0 4px;">Final value (7%/yr)</p>
+    <p style="font-size:22px;font-weight:500;color:#0F6E56;margin:0;" id="disp-value">£52,397</p>
+  </div>
+  <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:1rem;">
+    <p style="font-size:13px;color:var(--color-text-secondary);margin:0 0 4px;">Profit from returns</p>
+    <p style="font-size:22px;font-weight:500;color:#0F6E56;margin:0;" id="disp-profit">£28,397</p>
+  </div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:16px;margin-bottom:1.5rem;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <label style="font-size:14px;color:var(--color-text-secondary);min-width:130px;">Monthly (£)</label>
+    <input type="range" min="50" max="1000" step="50" value="100" id="monthly" style="flex:1;">
+    <span style="font-size:14px;font-weight:500;min-width:50px;" id="out-monthly">£100</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <label style="font-size:14px;color:var(--color-text-secondary);min-width:130px;">Years</label>
+    <input type="range" min="5" max="40" step="1" value="20" id="years" style="flex:1;">
+    <span style="font-size:14px;font-weight:500;min-width:50px;" id="out-years">20 yrs</span>
+  </div>
+</div>
+
+<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:8px;font-size:12px;color:var(--color-text-secondary);">
+  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#1D9E75;"></span>Optimistic (10%/yr)</span>
+  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#378ADD;"></span>Average (7%/yr)</span>
+  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#888780;border:1px dashed #888780;"></span>Total invested</span>
+</div>
+
+<div style="position:relative;width:100%;height:300px;">
+  <canvas id="chart" role="img" aria-label="Line chart showing investment growth over time at 7% and 10% annual return rates"></canvas>
+</div>
+
+<div style="margin-top:1.5rem;border-top:0.5px solid var(--color-border-tertiary);padding-top:1rem;">
+  <p style="font-size:13px;color:var(--color-text-secondary);margin:0 0 8px;">Projected final value by scenario</p>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;" id="scenarios"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+function calcFV(monthly, years, rate) {
+  const r = rate / 12;
+  const n = years * 12;
+  return monthly * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
+}
+
+function fmt(n) {
+  return '£' + Math.round(n).toLocaleString('en-GB');
+}
+
+let myChart;
+
+function buildChart(monthly, years) {
+  const labels = [];
+  const data7 = [], data10 = [], dataInv = [];
+  for (let y = 0; y <= years; y++) {
+    labels.push(y === 0 ? 'Now' : (36 + y) + ' yrs');
+    data7.push(Math.round(calcFV(monthly, y, 0.07)));
+    data10.push(Math.round(calcFV(monthly, y, 0.10)));
+    dataInv.push(Math.round(monthly * y * 12));
+  }
+  if (myChart) myChart.destroy();
+  myChart = new Chart(document.getElementById('chart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: '10%/yr', data: data10, borderColor: '#1D9E75', backgroundColor: 'rgba(29,158,117,0.08)', tension: 0.3, pointRadius: 0, fill: false },
+        { label: '7%/yr', data: data7, borderColor: '#378ADD', backgroundColor: 'rgba(55,138,221,0.08)', tension: 0.3, pointRadius: 0, fill: false },
+        { label: 'Invested', data: dataInv, borderColor: '#888780', borderDash: [5,5], tension: 0, pointRadius: 0, fill: false }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { callback: v => '£' + (v >= 1000 ? Math.round(v/1000) + 'k' : v) } },
+        x: { ticks: { autoSkip: true, maxTicksLimit: 6 } }
+      }
+    }
+  });
+}
+
+function buildScenarios(monthly, years) {
+  const rates = [{r:0.05,label:'Conservative (5%)'},{r:0.07,label:'Average (7%)'},{r:0.10,label:'Optimistic (10%)'}];
+  const colors = ['#888780','#378ADD','#1D9E75'];
+  const el = document.getElementById('scenarios');
+  el.innerHTML = rates.map((s,i) => `
+    <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px;">
+      <p style="font-size:11px;color:var(--color-text-secondary);margin:0 0 4px;">${s.label}</p>
+      <p style="font-size:16px;font-weight:500;color:${colors[i]};margin:0;">${fmt(calcFV(monthly, years, s.r))}</p>
+    </div>
+  `).join('');
+}
+
+function update() {
+  const monthly = parseInt(document.getElementById('monthly').value);
+  const years = parseInt(document.getElementById('years').value);
+  const invested = monthly * years * 12;
+  const val7 = calcFV(monthly, years, 0.07);
+
+  document.getElementById('out-monthly').textContent = '£' + monthly;
+  document.getElementById('out-years').textContent = years + ' yrs';
+  document.getElementById('disp-monthly').textContent = '£' + monthly;
+  document.getElementById('disp-invested').textContent = fmt(invested);
+  document.getElementById('disp-value').textContent = fmt(val7);
+  document.getElementById('disp-profit').textContent = fmt(val7 - invested);
+
+  buildChart(monthly, years);
+  buildScenarios(monthly, years);
+}
+
+document.getElementById('monthly').addEventListener('input', update);
+document.getElementById('years').addEventListener('input', update);
+update();
+</script>
